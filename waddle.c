@@ -1,6 +1,6 @@
 /****************************************
  *
- * $Id: waddle.c,v 1.5 1997/10/06 02:46:55 mdz Exp mdz $
+ * $Id: waddle.c,v 1.6 1997/10/11 17:20:35 mdz Exp mdz $
  *
  * WADDLE - Wide Area Digital Distribution of Live Entertainment
  *
@@ -9,6 +9,9 @@
  * Author: Doctor Z <mdz@csh.rit.edu>
  *
  * History: $Log: waddle.c,v $
+ * History: Revision 1.6  1997/10/11 17:20:35  mdz
+ * History: Cleaned up
+ * History:
  * History: Revision 1.5  1997/10/06 02:46:55  mdz
  * History: Took out sequence numbers
  * History:
@@ -47,7 +50,8 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sys/ioctl.h>
-#endif
+
+#endif /* !WIN32 */
 
 #ifdef WIN32
 #include <io.h>
@@ -62,6 +66,10 @@
 #endif
 
 #include "waddle.h"
+#ifdef HAVE_ITIMER
+#include <sys/time.h>
+#include <signal.h>
+#endif /* HAVE_ITIMER */
 
 /*********** Main **********/
 int main(int argc, char *argv[])
@@ -74,6 +82,9 @@ int main(int argc, char *argv[])
   WORD wVersionRequested;
   WSADATA WSAData;
 #endif
+#ifdef HAVE_ITIMER
+  unsigned int delay = 0;
+#endif
   
   struct sockaddr_in sin1, sin2;
 #ifdef HAVE_MULTICAST
@@ -85,7 +96,7 @@ int main(int argc, char *argv[])
   /* Defaults: 8kHz, 8bit, mono, receiver */
   int sampling_rate = 8000, sample_size = 1, channels = 1, mux = 0;
   int am_sender = 0;
-  int port = default_port;
+  int port = DEFAULT_PORT;
   extern char *optarg;
   extern int optind;
   
@@ -187,19 +198,22 @@ int main(int argc, char *argv[])
       /* stdin */
       if (sound_setup(0,sampling_rate,sample_size,channels) < 0)
 	{
-	  fprintf(stderr,"I don't see a sound device\nHope you know what you're doing...\n");
+	  fprintf(stderr,"I don't see a sound device\nAssuming prerecorded input...\n");
+	  /* Number of microseconds of audio that can fit in the buffer */
+	  delay = REAL_BUFFERLEN * 1000000.0 /
+	    (sampling_rate * sample_size * channels);
 	}
 
       if (mux)
 	{
-	  sender(sock1,&sin1,sock2,&sin2);
+	  sender(delay,sock1,&sin1,sock2,&sin2);
 	}
       else
 	{
-	  sender(sock1,&sin1,-1,NULL);
+	  sender(delay,sock1,&sin1,-1,NULL);
 	}
     }
-  else
+  else /* receiver */
     {
       fprintf(stderr,"Receiver...\n");
 
@@ -271,15 +285,39 @@ void usage(void)
  * The sender 
  *
  */
-void sender(int sock_left,struct sockaddr_in *sin_left,
+void sender(unsigned int delay,
+	    int sock_left,struct sockaddr_in *sin_left,
 	    int sock_right,struct sockaddr_in *sin_right)
 {
   char buf[REAL_BUFFERLEN];
   char buf_chan[REAL_BUFFERLEN / 2];
   int count;
+#ifdef HAVE_ITIMER
+  struct itimerval tmval;
+#endif
+
+#ifdef HAVE_ITIMER
+  signal(SIGALRM,SIG_IGN);
+#endif
+
+  fprintf(stderr,"Using delay of %d us\n",delay);
 
   for (;;) /* For-ev-er */
     {
+#ifdef HAVE_ITIMER
+      if (delay > 0)
+	{
+	  tmval.it_interval.tv_sec = tmval.it_interval.tv_usec = 0;
+	  tmval.it_value.tv_sec = 0;
+	  tmval.it_value.tv_usec = delay;
+	  if (setitimer(ITIMER_REAL,&tmval,0) < 0)
+	    {
+	      perror("setitimer");
+	      exit(1);
+	    }
+	}
+#endif /* HAVE_ITIMER */
+
       if ( (count = read(0,buf,REAL_BUFFERLEN)) < 0)
 	{
 	  SOCKERR("read");
@@ -291,21 +329,37 @@ void sender(int sock_left,struct sockaddr_in *sin_left,
 	}
       else /* We have data */
 	{
+#ifdef HAVE_ITIMER
+	  if (delay > 0)
+	    {
+	      if (getitimer(ITIMER_REAL,&tmval) < 0)
+		{
+		  perror("getitimer");
+		  exit(1);
+		}
+	      /* Sleep off the remainder of the timer, if there is any */
+	      /*fprintf(stderr,"Sleeping %d s + %d us\n",tmval.it_value.tv_sec,
+		tmval.it_value.tv_usec);*/
+	      sleep(tmval.it_value.tv_sec);
+	      usleep(tmval.it_value.tv_usec);
+	    }
+#endif /* HAVE_ITIMER */
+
 	  if (sin_right != NULL) /* Multiplexing mode */
 	    {
 	      fprintf(stderr,"Multiplexing is untested -- watch out\n");
 	      
 	      get_channel(buf,buf_chan,count,LEFT_CHANNEL);
-	      printf("Sending %d bytes (left)\n",count);
+	      /* printf("Sending %d bytes (left)\n",count); */
 	      send_datagram(sock_left,sin_left,buf_chan,count);
 
 	      get_channel(buf,buf_chan,count,RIGHT_CHANNEL);
-	      printf("Sending %d bytes (right)\n",count);
+	      /* printf("Sending %d bytes (right)\n",count); */
 	      send_datagram(sock_right,sin_right,buf_chan,count);
 	    }
 	  else /* Non-multiplexing mode */
 	    {
-	      printf("Sending %d bytes\n",count);
+	      /* printf("Sending %d bytes\n",count); */
 	      send_datagram(sock_left,sin_left,buf,count);
 	    }
 	}

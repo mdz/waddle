@@ -1,6 +1,9 @@
-/* $Id$
+/* $Id: waddle.h,v 1.7 1997/10/11 17:20:25 mdz Exp mdz $
  *
- * $Log$
+ * $Log: waddle.h,v $
+ * Revision 1.7  1997/10/11 17:20:25  mdz
+ * Cleaned up
+ *
  *
  */
 
@@ -37,6 +40,10 @@
 #pragma warning No multicast support
 #endif
 
+#ifdef LINUX
+#define HAVE_ITIMER
+#endif
+
 #ifdef HAVE_MULTICAST
 
 /* 224.0.0.0 .. 239.255.255.255 */
@@ -52,7 +59,8 @@
 
 enum {LEFT_CHANNEL,RIGHT_CHANNEL};
 
-void sender(int sock_left,struct sockaddr_in *sin_left,
+void sender(unsigned int delay,
+	    int sock_left,struct sockaddr_in *sin_left,
 	    int sock_right,struct sockaddr_in *sin_right);
 void receiver(int sock);
 void usage(void);
