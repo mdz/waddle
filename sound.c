@@ -128,16 +128,14 @@ int sound_setup(int dev,int sampling_rate,int sample_size,int channels)
 int sound_setup(int dev,int sampling_rate,int sample_size,int channels)
 {
   DSCAPS dscaps;
-  PCMWAVEFORMAT pcmwf;
+  WAVEFORMATEX pcmwf;
   DSBUFFERDESC dsbdesc;
   HRESULT hr;
   HWND hwnd;
 
-  if(DirectSoundCreate(NULL, &lpDirectSound,NULL) != DS_OK)
-  {
-    fprintf(stderr,"Couldn\'t initialize DirectSound -- barf!\n");
-	exit(1);
-  }
+  hr = DirectSoundCreate(NULL, &lpDirectSound,NULL);
+  if (hr != DS_OK)
+    DS_Error("DirectSoundCreate",hr);
 
   /* Get a window handle for this console */
   SetConsoleTitle("WADDLE");
@@ -145,21 +143,15 @@ int sound_setup(int dev,int sampling_rate,int sample_size,int channels)
   hwnd = FindWindow(NULL,"WADDLE");
   
   
-  if ( lpDirectSound->lpVtbl->SetCooperativeLevel(lpDirectSound, hwnd, DSSCL_EXCLUSIVE) != DS_OK)
-  {
-    fprintf(stderr,"Couldn\'t set cooperative level -- barf!\n");
-	exit(1);
-  }
+  hr = lpDirectSound->lpVtbl->SetCooperativeLevel(lpDirectSound, hwnd, DSSCL_EXCLUSIVE);
+  if (hr!= DS_OK)
+    DS_Error("SetCooperativeLevel",hr);
+	
   /* We can't query capabilities for some reason...testing */
-  /*if ( (hr = lpDirectSound->lpVtbl->GetCaps(lpDirectSound,&dscaps)) != DS_OK)
-  {
-    fprintf(stderr,"Couldn\'t get DirectSound capabilities: code %d\n",hr);
-	fprintf(stderr,"Possible: %d %d %d %d\n",DSERR_ALLOCATED,
-DSERR_INVALIDPARAM ,
-DSERR_UNINITIALIZED ,
-DSERR_UNSUPPORTED );
-	exit(1);
-  }
+  /*memset(&dscaps,0,sizeof(dscaps));
+  hr = lpDirectSound->lpVtbl->GetCaps(lpDirectSound,&dscaps);
+  if (hr != DS_OK)
+	DS_Error("GetCaps",hr);
 
   if ( (channels == 2) && !(dscaps.dwFlags & DSCAPS_PRIMARYSTEREO) )
   {
@@ -177,45 +169,35 @@ DSERR_UNSUPPORTED );
   
   memset(&pcmwf, 0, sizeof(pcmwf));
     
-  pcmwf.wf.wFormatTag = WAVE_FORMAT_PCM;
-  pcmwf.wf.nChannels = channels;
-  pcmwf.wf.nSamplesPerSec = sampling_rate * 2; /* This is insane */
-  pcmwf.wf.nBlockAlign = 1; /* This pukes in strange ways if changed */
-  pcmwf.wf.nAvgBytesPerSec = pcmwf.wf.nSamplesPerSec * sample_size;
+  pcmwf.wFormatTag = WAVE_FORMAT_PCM;
+  pcmwf.nChannels = channels;
+  pcmwf.nSamplesPerSec = sampling_rate * 2; /* This is insane */
+  pcmwf.nBlockAlign = 1; /* This pukes in strange ways if changed */
+  pcmwf.nAvgBytesPerSec = pcmwf.nSamplesPerSec * sample_size;
   pcmwf.wBitsPerSample = sample_size * 8;
 
   memset(&dsbdesc, 0, sizeof(dsbdesc));
   dsbdesc.dwSize = sizeof(DSBUFFERDESC);
 
   dsbdesc.dwFlags = DSBCAPS_CTRLDEFAULT;
-  dsbdesc.dwBufferBytes = 100 * pcmwf.wf.nSamplesPerSec;
-  dsbdesc.lpwfxFormat = (LPWAVEFORMATEX)&pcmwf;
+  dsbdesc.dwBufferBytes = 5 * pcmwf.nSamplesPerSec;
+  dsbdesc.lpwfxFormat = &pcmwf;
 
-  if ( (hr = lpDirectSound->lpVtbl->CreateSoundBuffer(lpDirectSound,
-       &dsbdesc, &lpDsb, NULL)) != DS_OK)
-  {
-    fprintf(stderr,"Couldn't create sound buffer -- waah! (%d)\n",hr);
-	fprintf(stderr,"Errors: %d %d %d %d %d %d %d\n",DSERR_ALLOCATED ,
-DSERR_BADFORMAT ,
-DSERR_INVALIDPARAM ,
-DSERR_NOAGGREGATION ,
-DSERR_OUTOFMEMORY ,
-DSERR_UNINITIALIZED, 
-DSERR_UNSUPPORTED);
-
-	exit(1);
-  }
-
-  /*if ( lpDsb->lpVtbl->SetVolume(lpDsb,0) != DS_OK)
-  {
-    fprintf(stderr,"Couldn\'t set volume\n");
-	exit(1);
-  }*/
+  hr = lpDirectSound->lpVtbl->CreateSoundBuffer(lpDirectSound,
+       &dsbdesc, &lpDsb, NULL);
+  if (hr != DS_OK)
+    DS_Error("CreateSoundBuffer",hr);
+  
+  /* Set format for the buffer */
+  /*lpDsb->lpVtbl->SetFormat(lpDsb,&pcmwf);
+  if (hr != DS_OK)
+	DS_Error("SetFormat",hr);*/
   
   return(0);
 }
 
 static int playing = 0;
+static DWORD real_writecursor = 0;
 
 void play_sound(char *buf,unsigned int len)
 {
@@ -227,57 +209,110 @@ void play_sound(char *buf,unsigned int len)
 	DWORD playcursor, writecursor;
 	HRESULT hr;
 
-	if ((hr = lpDsb->lpVtbl->Lock(lpDsb, 0, len, &lpvPtr1, 
-        &dwBytes1, &lpvPtr2, &dwBytes2, DSBLOCK_FROMWRITECURSOR)) != DS_OK)
-	{
-	  fprintf(stderr,"Couldn\'t lock sound buffer -- waah! (%d)\n",hr);
-	  fprintf(stderr,"Errors: %d %d %d %d\n",DSERR_BUFFERLOST ,
-DSERR_INVALIDCALL ,
-DSERR_INVALIDPARAM ,
-DSERR_PRIOLEVELNEEDED );
-	  exit(1);
-	}
+	hr = lpDsb->lpVtbl->Lock(lpDsb, real_writecursor, len, &lpvPtr1, 
+        &dwBytes1, &lpvPtr2, &dwBytes2, 0);
+	if (hr != DS_OK)
+		DS_Error("Lock",hr);
 	
 	fprintf(stderr,"Locked %d of %d bytes of buffer\n",dwBytes1,len);
 
 	if (dwBytes1 < len) /* Wrap around end of buffer */
 	{
 		CopyMemory(lpvPtr1,buf,dwBytes1);
-		CopyMemory(lpvPtr2,buf + dwBytes1,dwBytes2);
+		if (dwBytes2 != 0)
+		{
+			CopyMemory(lpvPtr2,buf + dwBytes1,dwBytes2);
+		}
+		real_writecursor = dwBytes2;
 	}
 	else
 	{
-		CopyMemory(lpvPtr1,buf,dwBytes1);
+		CopyMemory((unsigned char *)lpvPtr1,buf,dwBytes1);
+		real_writecursor += dwBytes1;
 	}
 	/*memcpy(lpvPtr1,buf,len);
 	write(1,buf,len);*/
 
-	if (lpDsb->lpVtbl->Unlock(lpDsb,lpvPtr1, dwBytes1, lpvPtr2, dwBytes2) != DS_OK)
-	{
-	  fprintf(stderr,"Couldn\'t UN-lock sound buffer -- waah!\n");
-	  exit(1);
-	}
+	hr = lpDsb->lpVtbl->Unlock(lpDsb,lpvPtr1, dwBytes1, lpvPtr2, dwBytes2);
+	if (hr != DS_OK)
+		DS_Error("Unlock",hr);
 
 	if (!playing)
 	{
 		playing = 1;
-		if (lpDsb->lpVtbl->Play(lpDsb,0,0,0) != DS_OK)
-		{
-		  fprintf(stderr,"Couldn\'t play sound buffer -- waah!\n");
-		exit(1);
-		}
+		hr = lpDsb->lpVtbl->Play(lpDsb,0,0,DSBPLAY_LOOPING);
+		if (hr != DS_OK)
+			DS_Error("Play",hr);
 	}
 
 	lpDsb->lpVtbl->GetStatus(lpDsb,&status);
 	fprintf(stderr,"Status: %d\n",status);
 	
-	if (lpDsb->lpVtbl->GetCurrentPosition(lpDsb,&playcursor,&writecursor) != DS_OK)
-	{
-	  fprintf(stderr,"GetCurrentPosition failed\n");
-	  exit(1);
-	}
+	hr = lpDsb->lpVtbl->GetCurrentPosition(lpDsb,&playcursor,&writecursor);
+	if (hr != DS_OK)
+		DS_Error("GetCurrentPosition",hr);
 
 	fprintf(stderr,"Cursors: %d %d\n",playcursor,writecursor);
+}
+
+void DS_Error(const char *context,HRESULT hr)
+{
+	char *msg;
+	switch (hr)
+	{
+	case DS_OK:
+		msg = "No error";
+		break;
+	case DSERR_ALLOCATED:
+		msg = "The request failed because resources, such as a priority level, were already in use by another caller.";
+		break;
+	case DSERR_ALREADYINITIALIZED:
+		msg = "The object is already initialized.";
+		break;
+	case DSERR_BADFORMAT:
+		msg = "The specified wave format is not supported.";
+		break;
+	case DSERR_BUFFERLOST:
+		msg = "The buffer memory has been lost and must be restored.";
+		break;
+	case DSERR_CONTROLUNAVAIL:
+		msg = "The control (volume, pan, and so forth) requested by the caller is not available.";
+		break;
+	case DSERR_GENERIC:
+		msg = "An undetermined error occurred inside the DirectSound subsystem.";
+		break;
+	case DSERR_INVALIDCALL:
+		msg = "This function is not valid for the current state of this object.";
+		break;
+	case DSERR_INVALIDPARAM:
+		msg = "An invalid parameter was passed to the returning function.";
+		break;
+	case DSERR_NOAGGREGATION:
+		msg = "The object does not support aggregation.";
+		break;
+	case DSERR_NODRIVER:
+		msg = "No sound driver is available for use.";
+		break;
+	case DSERR_OTHERAPPHASPRIO:
+		msg = "This value is obsolete and is not used.";
+		break;
+	case DSERR_OUTOFMEMORY:
+		msg = "The DirectSound subsystem could not allocate sufficient memory to complete the caller's request.";
+		break;
+	case DSERR_PRIOLEVELNEEDED:
+		msg = "The caller does not have the priority level required for the function to succeed.";
+		break;
+	case DSERR_UNINITIALIZED:
+		msg = "The IDirectSound::Initialize method has not been called or has not been called successfully before other methods were called.";
+		break;
+	case DSERR_UNSUPPORTED:
+		msg = "The function called is not supported at this time.";
+		break;
+	default:
+		msg = "Unknown error.";
+	}
+	fprintf(stderr,"%s: DirectSound error %d: %s\n",context,hr,msg);
+	exit(1);
 }
 
 /* This is the old MCI driver that I gave up on...it's just too watered down */
