@@ -1,24 +1,27 @@
 #ifndef WADDLE_H
 #define WADDLE_H
 
-/*#define LINUX*/
+struct waddle_hdr {
+  u_int32_t seq;
+};
 
 /**** Configurable options ****/
 
 #define PORT 10001
+
+/* Sequence number */
+#define HEADERLEN sizeof(struct waddle_hdr)
 
 /* Enough to buffer .5 seconds of audio */
 /*#define BUFFERLEN ((SAMPLING_RATE * CHANNELS * SAMPLE_SIZE) / 2)*/
 
 /* Perhaps we should use an integer power of 2 instead - makes the sound */
 /* driver happy */
-#define BUFFERLEN 4096
+#define REAL_BUFFERLEN 4096
+
+#define BUFFERLEN (REAL_BUFFERLEN + HEADERLEN)
 
 /**** End of configurable options ****/
-
-#ifdef LINUX
-#include <linux/soundcard.h>
-#endif
 
 #ifdef WIN32
 #include <winsock2.h>
@@ -45,8 +48,7 @@
 #define SOCKERR(str) perror(str)
 #endif
 
-#define LEFT_CHANNEL 0
-#define RIGHT_CHANNEL 1
+enum {LEFT_CHANNEL,RIGHT_CHANNEL};
 
 void sender(int sock_left,struct sockaddr_in *sin_left,
 	    int sock_right,struct sockaddr_in *sin_right);
@@ -56,8 +58,9 @@ void usage(void);
 int sound_setup(int dev,int sampling_rate,int sample_size,int channels);
 void get_channel(const char *src,char *dst,int len,int which);
 
-#ifdef WIN32
 void play_sound(char *buf,unsigned int len);
+#ifdef WIN32
+void write_buffer(char *buf,unsigned int len);
 #endif
 
 #endif /* WADDLE_H */
