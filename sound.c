@@ -1,8 +1,18 @@
 #include <stdio.h>
+
+#ifndef WIN32
 #include <sys/ioctl.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#endif
+
+#ifdef WIN32
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#else
 #include <sys/socket.h>
+#endif
+
 #include <assert.h>
 
 #include "waddle.h"
@@ -74,23 +84,30 @@ int sound_setup(int dev,int sampling_rate,int sample_size,int channels)
       fprintf(stderr,"Sampling rate (%d) unsupported\n",sampling_rate);
       exit(1);
     }
+
+	return(0);
 }
+
+#elif defined(WIN32)
+
+int sound_setup(int dev,int sampling_rate,int sample_size,int channels)
+{
+  fprintf(stderr,"Win32 sound support is incomplete -- watch out\n");
+  return(-1);
+}
+
 #else
 
-#error Non-Linux sound support is incomplete
-int sound_setup(int dev)
-{
-  fprintf(stderr,"Non-Linux sound support is incomplete\n");
-  exit(1);
-}
+#error Unsupported sound driver interface
+
 #endif
 
 void get_channel(const char *src,char *dst,int len,int which)
 {
   const char *src_ptr;
   char *dst_ptr;
-  const short int *src_ptr_big;
-  short int *dst_ptr_big;
+  /*const short int *src_ptr_big;
+  short int *dst_ptr_big;*/
 
   if (which == LEFT_CHANNEL)
       src_ptr = src;

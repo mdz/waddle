@@ -1,7 +1,7 @@
 #ifndef WADDLE_H
 #define WADDLE_H
 
-#define LINUX
+/*#define LINUX*/
 
 /**** Configurable options ****/
 
@@ -22,6 +22,8 @@
 
 #ifdef IP_ADD_MEMBERSHIP
 #define HAVE_MULTICAST /* Can receive multicasts */
+#else
+#pragma warning No multicast support
 #endif
 
 #ifdef HAVE_MULTICAST
@@ -29,10 +31,16 @@
 /* 224.0.0.0 .. 239.255.255.255 */
 #define IS_MULTICAST(addr) ((htonl(addr) & 0xf0000000) == 0xe0000000)
 
+#endif
+
+#ifdef WIN32
+#define SOCKERR(str) fprintf(stderr,"%s: winsock error %d\n",str,WSAGetLastError())
+#else
+#define SOCKERR(str) perror(str)
+#endif
+
 #define LEFT_CHANNEL 0
 #define RIGHT_CHANNEL 1
-
-#endif
 
 void sender(int sock_left,struct sockaddr_in *sin_left,
 	    int sock_right,struct sockaddr_in *sin_right);
