@@ -1,14 +1,11 @@
 /****************************************
  *
- * $Id: waddle.c,v 1.6 1997/10/11 17:20:35 mdz Exp mdz $
- *
- * WADDLE - Wide Area Digital Distribution of Live Entertainment
- *
- * Sends and receives live audio streams over UDP (unicast and multicast)
- *
- * Author: Doctor Z <mdz@csh.rit.edu>
+ * $Id: waddle.c,v 1.7 1997/10/14 22:41:34 mdz Exp $
  *
  * History: $Log: waddle.c,v $
+ * History: Revision 1.7  1997/10/14 22:41:34  mdz
+ * History: Added interval timers for prerecorded sound
+ * History:
  * History: Revision 1.6  1997/10/11 17:20:35  mdz
  * History: Cleaned up
  * History:
