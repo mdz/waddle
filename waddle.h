@@ -1,23 +1,29 @@
+/* $Id$
+ *
+ * $Log$
+ *
+ */
+
+/* WADDLE - waddle.h
+ *
+ * Declarations
+ *
+ */
+
+
 #ifndef WADDLE_H
 #define WADDLE_H
 
 /**** Configurable options ****/
 
-#define PORT 10001
+#define DEFAULT_PORT 10001
 
-/* Sequence number */
-#define HEADERLEN sizeof(struct waddle_hdr)
-
-/* Enough to buffer .5 seconds of audio */
-/*#define BUFFERLEN ((SAMPLING_RATE * CHANNELS * SAMPLE_SIZE) / 2)*/
-
-/* Perhaps we should use an integer power of 2 instead - makes the sound */
-/* driver happy */
+/* Using an integer power of 2 makes the sound driver happy */
 #define REAL_BUFFERLEN 4096
 
-#define BUFFERLEN (REAL_BUFFERLEN + HEADERLEN)
-
 /**** End of configurable options ****/
+
+#define BUFFERLEN REAL_BUFFERLEN /* This would include any header */
 
 #ifdef WIN32
 #include <winsock2.h>
@@ -50,8 +56,8 @@ void sender(int sock_left,struct sockaddr_in *sin_left,
 	    int sock_right,struct sockaddr_in *sin_right);
 void receiver(int sock);
 void usage(void);
-void send_datagram(int sock,struct sockaddr_in *sin,char *buf,unsigned int len);
-int receive_datagram(int sock,char *buf,int len);
+inline void send_datagram(int sock,struct sockaddr_in *sin,char *buf,unsigned int len);
+inline int receive_datagram(int sock,char *buf,int len);
 int sound_setup(int dev,int sampling_rate,int sample_size,int channels);
 void get_channel(const char *src,char *dst,int len,int which);
 

@@ -1,8 +1,10 @@
 /*
- * $Id: sound.c,v 1.11 1997/10/10 17:01:31 mdz Exp $
- * WADDLE - sound.c
+ * $Id: sound.c,v 1.12 1997/10/10 21:54:18 mdz Exp mdz $
  *
  * History: $Log: sound.c,v $
+ * History: Revision 1.12  1997/10/10 21:54:18  mdz
+ * History: fixed stereo problem in linux driver
+ * History:
  * History: Revision 1.11  1997/10/10 17:01:31  mdz
  * History: Whipped things into shape
  * History:
@@ -24,6 +26,20 @@
  *
  */
 
+/* 
+ * WADDLE - sound.c
+ *
+ * Interfaces to system sound drivers
+ *
+ * Currently supports:
+ *
+ * Linux (VOXware)
+ * Win95/WinNT (DirectSound/DirectX)
+ *
+ * Matt "Doc" Zimmerman <mdz@csh.rit.edu> 1997
+ *
+ */
+
 #include <stdio.h>
 
 #ifndef WIN32
@@ -39,37 +55,38 @@
 
 #include <assert.h>
 
-#include "waddle.h"
-
 #ifdef LINUX
 #include <linux/soundcard.h>
 #endif
 
+#include "waddle.h"
+
 /* Remember this for channel separation */
 static int sample_size_global;
-
 static int dev_global;
 
 #ifdef WIN32
+
 static LPDIRECTSOUND lpDirectSound;
 static LPDIRECTSOUNDBUFFER lpDsb;
 
 static int playing = 0; /* Has the buffer started playing? */
 static DWORD real_writecursor = 0; /* where to write in the buffer */
-#endif
+
+#endif /* WIN32 */
 
 /*
  * Sound interfaces
  *
  */
 
-/* For all interfaces */
+/* For all interfaces - called by sound_setup */
 void generic_sound_setup(void)
 {
   /* Nothing anymore */
 }
 
-/* Take care of sequencing */
+/* Called by top level */
 void generic_play_sound(char *buf,unsigned int len)
 {
   play_sound(buf,len);
@@ -78,14 +95,14 @@ void generic_play_sound(char *buf,unsigned int len)
 #ifdef LINUX
 
 /* The Linux (VOXware) sound interface */
-/* Requires kernel sound support */
+/* Requires kernel sound support (incl. /dev/dsp) */
 
 int sound_setup(int dev,int sampling_rate,int sample_size,int channels)
 {
   int format = 0, arg = 0, tmp;
 
-  /* Note: always set sample format (size), number of channels, sample rate *
-   * in that order */
+  /* Note: always set sample format (size), number of channels, sample rate
+     in that order */
 
   sample_size_global = sample_size;
   dev_global = dev;
@@ -97,6 +114,7 @@ int sound_setup(int dev,int sampling_rate,int sample_size,int channels)
       return(-1); /* Not a sound device? */
     }
 
+  /* Set sample size */
   assert( (sample_size == 1) || (sample_size == 2));
   if (sample_size == 1)
     format = arg = AFMT_U8;
@@ -115,7 +133,8 @@ int sound_setup(int dev,int sampling_rate,int sample_size,int channels)
       exit(1);
     }
 
-  tmp = channels - 1;
+  /* Set number of channels */
+  tmp = channels - 1; /* 0 == mono, 1 == stereo */
   arg = tmp;
   if (ioctl(dev,SNDCTL_DSP_STEREO,&arg) < 0)
     {
@@ -128,6 +147,7 @@ int sound_setup(int dev,int sampling_rate,int sample_size,int channels)
       exit(1);
     }
 
+  /* Set sampling rate */
   format = arg = sampling_rate;
 
   if (ioctl(dev,SNDCTL_DSP_SPEED,&arg) < 0)
@@ -184,7 +204,7 @@ int sound_setup(int dev,int sampling_rate,int sample_size,int channels)
   if (hr!= DS_OK)
     DS_Error("SetCooperativeLevel",hr);
 	
-  /* We can't query capabilities for some reason...testing */
+  /* We can't query capabilities yet for some reason...testing */
   /*memset(&dscaps,0,sizeof(dscaps));
     hr = lpDirectSound->lpVtbl->GetCaps(lpDirectSound,&dscaps);
     if (hr != DS_OK)
@@ -206,6 +226,9 @@ int sound_setup(int dev,int sampling_rate,int sample_size,int channels)
   
   memset(&pcmwf, 0, sizeof(pcmwf));
     
+  /* This is a braindead structure */
+  /* BlockAlign and AvgBytesPerSec should be calculated for us; in fact,
+     the call fails if we don't calculate them this way */
   pcmwf.wFormatTag = WAVE_FORMAT_PCM;
   pcmwf.nChannels = channels;
   pcmwf.nSamplesPerSec = sampling_rate;
@@ -216,8 +239,11 @@ int sound_setup(int dev,int sampling_rate,int sample_size,int channels)
   memset(&dsbdesc, 0, sizeof(dsbdesc));
   dsbdesc.dwSize = sizeof(DSBUFFERDESC);
 
+  /* Request default controls */
   dsbdesc.dwFlags = DSBCAPS_CTRLDEFAULT;
+  /* Five seconds of buffer is more than enough since we're streaming */
   dsbdesc.dwBufferBytes = 5 * pcmwf.nSamplesPerSec;
+  /* The format structure */
   dsbdesc.lpwfxFormat = &pcmwf;
 
   hr = lpDirectSound->lpVtbl->CreateSoundBuffer(lpDirectSound,
@@ -283,6 +309,9 @@ void play_sound(char *buf,unsigned int len)
 }
 
 
+/* Error codes for DirectSound
+   (why doesn't MS give me a strerror() equivalent?) */
+/* Print an error message and bail */
 void DS_Error(const char *context,HRESULT hr)
 {
   char *msg;
@@ -356,17 +385,13 @@ void get_channel(const char *src,char *dst,int len,int which)
   /*const short int *src_ptr_big;
     short int *dst_ptr_big;*/
 
+  assert(which == LEFT_CHANNEL || which == RIGHT_CHANNEL);
   if (which == LEFT_CHANNEL)
     src_ptr = src;
-  else if (which == RIGHT_CHANNEL)
+  else /* RIGHT_CHANNEL */
     src_ptr = src + sample_size_global;
-  else
-    {
-      fprintf(stderr,"Scary shit going down.  Bailing.\n");
-      exit(1);
-    }
 
-#define CHANNELS 2 /* Someday... */
+#define CHANNELS 2 /* More someday... */
 
   if (sample_size_global == 1) /* 8-bit samples */
     for(dst_ptr = dst; len > 0;

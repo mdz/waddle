@@ -1,3 +1,36 @@
+/****************************************
+ *
+ * $Id: waddle.c,v 1.5 1997/10/06 02:46:55 mdz Exp mdz $
+ *
+ * WADDLE - Wide Area Digital Distribution of Live Entertainment
+ *
+ * Sends and receives live audio streams over UDP (unicast and multicast)
+ *
+ * Author: Doctor Z <mdz@csh.rit.edu>
+ *
+ * History: $Log: waddle.c,v $
+ * History: Revision 1.5  1997/10/06 02:46:55  mdz
+ * History: Took out sequence numbers
+ * History:
+ * History: Revision 1.4  1997/10/01 19:48:31  mdz
+ * History: Cleaned up
+ * History:
+ * History: Revision 1.3  1997/09/28 20:09:45  mdz
+ * History: *** empty log message ***
+ * History:
+ *
+ ****************************************/
+
+/*
+ * WADDLE (Wide Area Digital Distribution of Live Entertainment)
+ *
+ * Sends a raw audio stream over UDP to one or more recipients, possibly
+ * using IP multicast
+ *
+ * Matt "Doc" Zimmerman <mdz@csh.rit.edu> 1997
+ *
+ */
+
 #include <stdio.h>
 #include <sys/types.h>
 
@@ -30,26 +63,6 @@
 
 #include "waddle.h"
 
-/****************************************
- *
- * $Id: waddle.c,v 1.4 1997/10/01 19:48:31 mdz Exp mdz $
- *
- * WADDLE - Wide Area Digital Distribution of Live Entertainment
- *
- * Sends and receives live audio streams over UDP (unicast and multicast)
- *
- * Author: Doctor Z <mdz@csh.rit.edu>
- *
- * History: $Log: waddle.c,v $
- * History: Revision 1.4  1997/10/01 19:48:31  mdz
- * History: Cleaned up
- * History:
- * History: Revision 1.3  1997/09/28 20:09:45  mdz
- * History: *** empty log message ***
- * History:
- *
- ****************************************/
-
 /*********** Main **********/
 int main(int argc, char *argv[])
 {
@@ -72,10 +85,11 @@ int main(int argc, char *argv[])
   /* Defaults: 8kHz, 8bit, mono, receiver */
   int sampling_rate = 8000, sample_size = 1, channels = 1, mux = 0;
   int am_sender = 0;
+  int port = default_port;
   extern char *optarg;
   extern int optind;
   
-  while ( (opt = getopt(argc,argv, "r:qsmhb")) != EOF )
+  while ( (opt = getopt(argc,argv, "r:qsmhbp")) != EOF )
     {
       switch (opt)
 	{
@@ -90,14 +104,17 @@ int main(int argc, char *argv[])
 	  break;
 	case 'b': /* Broadcast mode */
 #ifdef WIN32
-	  fprintf(stderr,"Broadcast mode doesn't work under WIN32.  Get a real OS.\n");
+	  fprintf(stderr,"Broadcast mode not implemented for WIN32 and I don't care.\n");
 	  exit(1);
 #endif
 	  am_sender = 1;
 	  break;
+	case 'p': /* Port */
+	  port = atoi(optarg);
+	  break;
 	case 'h': /* Help */
 	  usage(); /* does not return */
-	default:
+	default: /* Unknown option */
 	  usage(); /* does not return */
 	}
     }
@@ -120,7 +137,7 @@ int main(int argc, char *argv[])
     }
 
   sin1.sin_family = AF_INET;
-  sin1.sin_port = htons(PORT);
+  sin1.sin_port = htons(port);
 
   /* First non-option argument */
   sin1.sin_addr.s_addr = inet_addr(argv[optind]);
@@ -132,7 +149,7 @@ int main(int argc, char *argv[])
       fprintf(stderr,"Couldn't find a suitable winsock -- barf!\n");
       exit(1);
     }
-#endif WIN32
+#endif /* WIN32 */
 
   sock1 = socket(AF_INET,SOCK_DGRAM,0);
   if (sock1 < 0)
@@ -151,7 +168,7 @@ int main(int argc, char *argv[])
   if (mux) /* Initialize second socket for multiplex mode */
     {
       sin2.sin_family = AF_INET;
-      sin2.sin_port = htons(PORT);
+      sin2.sin_port = htons(port);
 	 
       sin2.sin_addr.s_addr = inet_addr(argv[optind]);
 	 
@@ -214,9 +231,9 @@ int main(int argc, char *argv[])
 #endif
     
 #ifdef WIN32
-      sound_setup(0,sampling_rate,sample_size,(mux)?(1):(channels));
-#else  
-      if (!isatty(1)) /* Allow for manual test procedures */
+      sound_setup(-1,sampling_rate,sample_size,(mux)?(1):(channels));
+#else
+      if (!isatty(1)) /* Don't puke to allow for manual test procedures */
 	{
 	  /* Use mono output mode if we're multiplexing */
 	  sound_setup(1,sampling_rate,sample_size,(mux)?(1):(channels)); /* stdout */
@@ -238,11 +255,11 @@ void usage(void)
   fprintf(stderr,"Usage:\n");
   fprintf(stderr,"waddle [options] <left ip address> [right ip address]\n\n");
   fprintf(stderr,"Options:\n");
-  fprintf(stderr,"\ts\t- Enables stereo mode (default: disabled)\n");
+  fprintf(stderr,"\ts\t- Enables stereo mode (default: mono)\n");
   fprintf(stderr,"\tr <arg>\t- Sets sampling rate (default: 8kHz)\n");
   fprintf(stderr,"\tq\t- Enables high-quality mode with 16-bit samples (default: 8-bit)\n");
   fprintf(stderr,"\tb\t- Enables broadcast (sender) mode\n");
-  fprintf(stderr,"\nSpecify two IP addresses on sender for left-right multiplexing mode\n");
+  fprintf(stderr,"\nSpecify two IP addresses on sender for stereo multiplexing mode\n");
 #ifndef WIN32
   fprintf(stderr,"Use sound device as stdin/stdout as appropriate\n");
 #endif
@@ -295,7 +312,7 @@ void sender(int sock_left,struct sockaddr_in *sin_left,
     }
 }
 
-void send_datagram(int sock,struct sockaddr_in *sin,char *buf,unsigned int len)
+inline void send_datagram(int sock,struct sockaddr_in *sin,char *buf,unsigned int len)
 {
   if (sendto(sock,buf,len,0,(struct sockaddr *)sin,sizeof(*sin)) < 0)
     {
@@ -316,12 +333,12 @@ void receiver(int sock)
   for(;;) /* For-ev-er */
     {
       count = receive_datagram(sock,buf,sizeof(buf));
-      /* XXX broken - This should account for endian differences someday */
+      /* XXX - This should account for endian differences someday */
       generic_play_sound(buf,count);
     }
 }
 
-int receive_datagram(int sock,char *buf,int len)
+inline int receive_datagram(int sock,char *buf,int len)
 {
   int count;
 
