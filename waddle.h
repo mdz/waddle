@@ -1,10 +1,6 @@
 #ifndef WADDLE_H
 #define WADDLE_H
 
-struct waddle_hdr {
-  u_int32_t seq;
-};
-
 /**** Configurable options ****/
 
 #define PORT 10001
@@ -54,13 +50,16 @@ void sender(int sock_left,struct sockaddr_in *sin_left,
 	    int sock_right,struct sockaddr_in *sin_right);
 void receiver(int sock);
 void usage(void);
-
+void send_datagram(int sock,struct sockaddr_in *sin,char *buf,unsigned int len);
+int receive_datagram(int sock,char *buf,int len);
 int sound_setup(int dev,int sampling_rate,int sample_size,int channels);
 void get_channel(const char *src,char *dst,int len,int which);
 
+void generic_play_sound(char *buf,unsigned int len);
 void play_sound(char *buf,unsigned int len);
 #ifdef WIN32
 void write_buffer(char *buf,unsigned int len);
+void DS_Error(const char *context,HRESULT hr);
 #endif
 
 #endif /* WADDLE_H */

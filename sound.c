@@ -1,8 +1,11 @@
 /*
- * $Id: sound.c,v 1.9 1997/10/02 16:00:45 mdz Exp $
+ * $Id: sound.c,v 1.10 1997/10/06 02:46:55 mdz Exp mdz $
  * WADDLE - sound.c
  *
  * History: $Log: sound.c,v $
+ * History: Revision 1.10  1997/10/06 02:46:55  mdz
+ * History: Took out sequence numbers
+ * History:
  * History: Revision 1.9  1997/10/02 16:00:45  mdz
  * History: Added sequence numbers
  * History:
@@ -31,10 +34,6 @@
 #include <io.h>
 #endif
 
-#ifdef WIN32_MCI
-#include <mmsystem.h>
-#endif
-
 #include <assert.h>
 
 #include "waddle.h"
@@ -54,17 +53,6 @@ static LPDIRECTSOUNDBUFFER lpDsb;
 
 static int playing = 0; /* Has the buffer started playing? */
 static DWORD real_writecursor = 0; /* where to write in the buffer */
-#endif
-
-#ifdef WIN32_MCI
-/* WAVE header (16-byte format spec) */
-static char wave_header[128] = "RIFF\0x19\0xa2\0x00\0x00WAVEfmt \0x10\0x00\0x00\0x00";
-/*static char wave_header[128] = "WAVEfmt \0x10\0x00\0x00\0x00";*/
-/*static char wave_header[128] = "WAVEfmt \0x00\0x00\0x00\0x00";*/
-#define WAVE_MAGIC 20 /* start of format data */
-static char *lpData = wave_header;
-static long fileSize = 128;
-static UINT wave_device_id;
 #endif
 
 /*
@@ -91,7 +79,7 @@ void generic_play_sound(char *buf,unsigned int len)
 
 int sound_setup(int dev,int sampling_rate,int sample_size,int channels)
 {
-  int format = 0, arg = 0;
+  int format = 0, arg = 0, tmp;
 
   /* Note: always set sample format (size), number of channels, sample rate *
    * in that order */
@@ -124,13 +112,14 @@ int sound_setup(int dev,int sampling_rate,int sample_size,int channels)
       exit(1);
     }
 
-  arg = channels;
+  tmp = channels = 1;
+  arg = tmp;
   if (ioctl(dev,SNDCTL_DSP_STEREO,&arg) < 0)
     {
       perror("ioctl: SNDCTL_DSP_STEREO");
       exit(1);
     }
-  if (arg != channels) /* Our request was denied */
+  if (arg != tmp) /* Our request was denied */
     {
       fprintf(stderr,"Number of channels (%d) unsupported\n",channels);
       exit(1);
@@ -216,9 +205,9 @@ int sound_setup(int dev,int sampling_rate,int sample_size,int channels)
     
   pcmwf.wFormatTag = WAVE_FORMAT_PCM;
   pcmwf.nChannels = channels;
-  pcmwf.nSamplesPerSec = sampling_rate * 2; /* This is insane */
-  pcmwf.nBlockAlign = 1; /* This pukes in strange ways if changed */
-  pcmwf.nAvgBytesPerSec = pcmwf.nSamplesPerSec * sample_size;
+  pcmwf.nSamplesPerSec = sampling_rate;
+  pcmwf.nBlockAlign = sample_size * channels;
+  pcmwf.nAvgBytesPerSec = pcmwf.nSamplesPerSec * sample_size * channels;
   pcmwf.wBitsPerSample = sample_size * 8;
 
   memset(&dsbdesc, 0, sizeof(dsbdesc));
