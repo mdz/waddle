@@ -1,3 +1,11 @@
+/*
+ * $Id$
+ * WADDLE - sound.c
+ *
+ * History: $Log$
+ *
+ */
+
 #include <stdio.h>
 
 #ifndef WIN32
