@@ -20,6 +20,12 @@
 #include <linux/soundcard.h>
 #endif
 
+#ifdef WIN32
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#include <dsound.h> /* If we include this before winsock, it blows up.  $#@@# Microsoft */
+#endif
+
 #ifdef IP_ADD_MEMBERSHIP
 #define HAVE_MULTICAST /* Can receive multicasts */
 #else
@@ -49,5 +55,9 @@ void usage(void);
 
 int sound_setup(int dev,int sampling_rate,int sample_size,int channels);
 void get_channel(const char *src,char *dst,int len,int which);
+
+#ifdef WIN32
+void play_sound(char *buf,int len);
+#endif
 
 #endif /* WADDLE_H */
