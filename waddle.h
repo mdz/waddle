@@ -1,0 +1,45 @@
+#ifndef WADDLE_H
+#define WADDLE_H
+
+#define LINUX
+
+/**** Configurable options ****/
+
+#define PORT 10001
+
+/* Enough to buffer .5 seconds of audio */
+/*#define BUFFERLEN ((SAMPLING_RATE * CHANNELS * SAMPLE_SIZE) / 2)*/
+
+/* Perhaps we should use an integer power of 2 instead - makes the sound */
+/* driver happy */
+#define BUFFERLEN 4096
+
+/**** End of configurable options ****/
+
+#ifdef LINUX
+#include <linux/soundcard.h>
+#endif
+
+#ifdef IP_ADD_MEMBERSHIP
+#define HAVE_MULTICAST /* Can receive multicasts */
+#endif
+
+#ifdef HAVE_MULTICAST
+
+/* 224.0.0.0 .. 239.255.255.255 */
+#define IS_MULTICAST(addr) ((htonl(addr) & 0xf0000000) == 0xe0000000)
+
+#define LEFT_CHANNEL 0
+#define RIGHT_CHANNEL 1
+
+#endif
+
+void sender(int sock_left,struct sockaddr_in *sin_left,
+	    int sock_right,struct sockaddr_in *sin_right);
+void receiver(int sock);
+void usage(void);
+
+int sound_setup(int dev,int sampling_rate,int sample_size,int channels);
+void get_channel(const char *src,char *dst,int len,int which);
+
+#endif /* WADDLE_H */
