@@ -32,7 +32,7 @@
 
 /****************************************
  *
- * $Id: waddle.c,v 1.3 1997/09/28 20:09:45 mdz Exp mdz $
+ * $Id: waddle.c,v 1.4 1997/10/01 19:48:31 mdz Exp mdz $
  *
  * WADDLE - Wide Area Digital Distribution of Live Entertainment
  *
@@ -41,6 +41,9 @@
  * Author: Doctor Z <mdz@csh.rit.edu>
  *
  * History: $Log: waddle.c,v $
+ * History: Revision 1.4  1997/10/01 19:48:31  mdz
+ * History: Cleaned up
+ * History:
  * History: Revision 1.3  1997/09/28 20:09:45  mdz
  * History: *** empty log message ***
  * History:
@@ -254,13 +257,13 @@ void usage(void)
 void sender(int sock_left,struct sockaddr_in *sin_left,
 	    int sock_right,struct sockaddr_in *sin_right)
 {
-  char buf[BUFFERLEN];
-  char buf_chan[BUFFERLEN / 2];
+  char buf[REAL_BUFFERLEN];
+  char buf_chan[REAL_BUFFERLEN / 2];
   int count;
 
   for (;;) /* For-ev-er */
     {
-      if ( (count = read(0,buf,sizeof(buf))) < 0)
+      if ( (count = read(0,buf,REAL_BUFFERLEN)) < 0)
 	{
 	  SOCKERR("read");
 	  exit(1);
@@ -269,40 +272,35 @@ void sender(int sock_left,struct sockaddr_in *sin_left,
 	{
 	  exit(0);
 	}
-      else
+      else /* We have data */
 	{
 	  if (sin_right != NULL) /* Multiplexing mode */
 	    {
 	      fprintf(stderr,"Multiplexing is untested -- watch out\n");
 	      
 	      get_channel(buf,buf_chan,count,LEFT_CHANNEL);
-	      printf("Sending %d bytes\n",count);
-	      if (sendto(sock_left,buf_chan,count,0,
-			 (struct sockaddr *)sin_left,sizeof(*sin_left)) < 0)
-		{
-		  SOCKERR("sendto");
-		  exit(1);
-		}
+	      printf("Sending %d bytes (left)\n",count);
+	      send_datagram(sock_left,sin_left,buf_chan,count);
+
 	      get_channel(buf,buf_chan,count,RIGHT_CHANNEL);
-	      printf("Sending %d bytes\n",count);
-	      if (sendto(sock_right,buf_chan,count,0,
-			 (struct sockaddr *)sin_right,sizeof(*sin_right)) < 0)
-		{
-		  SOCKERR("sendto");
-		  exit(1);
-		}
+	      printf("Sending %d bytes (right)\n",count);
+	      send_datagram(sock_right,sin_right,buf_chan,count);
 	    }
 	  else /* Non-multiplexing mode */
 	    {
 	      printf("Sending %d bytes\n",count);
-	      if (sendto(sock_left,buf,count,0,
-			 (struct sockaddr *)sin_left,sizeof(*sin_left)) < 0)
-		{
-		  SOCKERR("sendto");
-		  exit(1);
-		}
+	      send_datagram(sock_left,sin_left,buf,count);
 	    }
 	}
+    }
+}
+
+void send_datagram(int sock,struct sockaddr_in *sin,char *buf,unsigned int len)
+{
+  if (sendto(sock,buf,len,0,(struct sockaddr *)sin,sizeof(*sin)) < 0)
+    {
+      SOCKERR("sendto");
+      exit(1);
     }
 }
 
@@ -312,23 +310,27 @@ void sender(int sock_left,struct sockaddr_in *sin_left,
  */
 void receiver(int sock)
 {
-  char buf[BUFFERLEN];
+  char buf[REAL_BUFFERLEN];
   int count;
   
   for(;;) /* For-ev-er */
     {
-      if ( (count = recvfrom(sock,buf,sizeof(buf),0,			    
-			     NULL,NULL)) < 0)
-	{
-	  SOCKERR("recvfrom");
-	  exit(1);
-	}
-      else
-	/* XXX broken - This should account for endian differences */
-#ifdef WIN32
-	play_sound(buf,count);
-#else
-      write(1,buf,count);
-#endif
+      count = receive_datagram(sock,buf,sizeof(buf));
+      /* XXX broken - This should account for endian differences someday */
+      generic_play_sound(buf,count);
     }
+}
+
+int receive_datagram(int sock,char *buf,int len)
+{
+  int count;
+
+  if ( (count = recvfrom(sock,buf,len,0,
+			 NULL,NULL)) < 0)
+    {
+      SOCKERR("recvfrom");
+      exit(1);
+    }
+
+  return(count);
 }

@@ -1,8 +1,11 @@
 /*
- * $Id: sound.c,v 1.8 1997/10/01 19:48:31 mdz Exp mdz $
+ * $Id: sound.c,v 1.9 1997/10/02 16:00:45 mdz Exp $
  * WADDLE - sound.c
  *
  * History: $Log: sound.c,v $
+ * History: Revision 1.9  1997/10/02 16:00:45  mdz
+ * History: Added sequence numbers
+ * History:
  * History: Revision 1.8  1997/10/01 19:48:31  mdz
  * History: Cleaned up
  * History:
@@ -44,9 +47,6 @@
 static int sample_size_global;
 
 static int dev_global;
-static struct waddle_hdr last_header;
-
-char fill[REAL_BUFFERLEN];
 
 #ifdef WIN32
 static LPDIRECTSOUND lpDirectSound;
@@ -75,9 +75,14 @@ static UINT wave_device_id;
 /* For all interfaces */
 void generic_sound_setup(void)
 {
-  memset(&last_header,0,sizeof(last_header));
-  memset(fill,0,sizeof(fill));
-}  
+  /* Nothing anymore */
+}
+
+/* Take care of sequencing */
+void generic_play_sound(char *buf,unsigned int len)
+{
+  play_sound(buf,len);
+}
 
 #ifdef LINUX
 
@@ -147,32 +152,14 @@ int sound_setup(int dev,int sampling_rate,int sample_size,int channels)
   return(0);
 }
 
+/* Simplicity itself */
 void play_sound(char *buf,unsigned int len)
 {
-  struct waddle_hdr header;
-
-  memcpy(&header,buf,sizeof(header));
-  buf += sizeof(header);
-  len -= sizeof(header);
-
-  /* If we missed one or more datagrams */
-  if (last_header.seq && 
-      (header.seq != (last_header.seq + 1)))
-    /* Write fill data to catch up */
-    for( ; ++last_header.seq < header.seq ; )
-      if (write(dev_global,sizeof(fill),REAL_BUFFERLEN) < 0)
-	{
-	  perror("write");
-	  exit(1);
-	};
-  
   if (write(dev_global,buf,len) < 0)
     {
       perror("write");
       exit(1);
     }
-
-  last_header = header;
 }
 
 #elif defined(WIN32) /* ^ Linux v WIN32 */
@@ -250,27 +237,6 @@ int sound_setup(int dev,int sampling_rate,int sample_size,int channels)
 }
 
 void play_sound(char *buf,unsigned int len)
-{
-  struct waddle_hdr header;
-
-  /* Strip out the header */
-  memcpy(&header,buf,sizeof(header));
-  buf += sizeof(header);
-  len -= sizeof(header);
-  
-  /* If we missed one or more datagrams */
-  if ( last_header.seq &&
-       (header.seq != (last_header.seq + 1)) )
-    for( ; ++last_header.seq < header.seq ; )
-      {
-	write_buffer(fill,REAL_BUFFERLEN);
-      }
-  
-  write_buffer(buf,len);
-  last_header = header;
-}
-
-void write_buffer(char *buf,unsigned int len)
 {
   LPVOID lpvPtr1;
   DWORD dwBytes1;
