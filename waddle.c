@@ -32,7 +32,7 @@
 
 /****************************************
  *
- * $Id: waddle.c,v 1.3 1997/09/27 22:03:48 mdz Exp mdz $
+ * $Id: waddle.c,v 1.3 1997/09/28 20:09:45 mdz Exp mdz $
  *
  * WADDLE - Wide Area Digital Distribution of Live Entertainment
  *
@@ -40,7 +40,10 @@
  *
  * Author: Doctor Z <mdz@csh.rit.edu>
  *
- * History: $Log$
+ * History: $Log: waddle.c,v $
+ * History: Revision 1.3  1997/09/28 20:09:45  mdz
+ * History: *** empty log message ***
+ * History:
  *
  ****************************************/
 
@@ -84,7 +87,7 @@ int main(int argc, char *argv[])
 	  break;
 	case 'b': /* Broadcast mode */
 #ifdef WIN32
-      fprintf(stderr,"Broadcast mode doesn't work under WIN32.  Get a real OS.\n");
+	  fprintf(stderr,"Broadcast mode doesn't work under WIN32.  Get a real OS.\n");
 	  exit(1);
 #endif
 	  am_sender = 1;
@@ -162,7 +165,7 @@ int main(int argc, char *argv[])
       fprintf(stderr,"Sender...\n");
   
       /* stdin */
-    if (sound_setup(0,sampling_rate,sample_size,channels) < 0)
+      if (sound_setup(0,sampling_rate,sample_size,channels) < 0)
 	{
 	  fprintf(stderr,"I don't see a sound device\nHope you know what you're doing...\n");
 	}
@@ -207,15 +210,15 @@ int main(int argc, char *argv[])
 	}
 #endif
     
-	#ifdef WIN32
-	sound_setup(0,sampling_rate,sample_size,(mux)?(1):(channels));
-	#else  
-    if (!isatty(1)) /* Allow for manual test procedures */
+#ifdef WIN32
+      sound_setup(0,sampling_rate,sample_size,(mux)?(1):(channels));
+#else  
+      if (!isatty(1)) /* Allow for manual test procedures */
 	{
 	  /* Use mono output mode if we're multiplexing */
 	  sound_setup(1,sampling_rate,sample_size,(mux)?(1):(channels)); /* stdout */
 	}
-	#endif
+#endif
 
       receiver(sock1);
     }
@@ -320,12 +323,12 @@ void receiver(int sock)
 	  SOCKERR("recvfrom");
 	  exit(1);
 	}
-    else
-	/* broken - This should account for endian differences */
-	#ifdef WIN32
-	  play_sound(buf,count);
-	#else
-	  write(1,buf,count);
-	#endif
+      else
+	/* XXX broken - This should account for endian differences */
+#ifdef WIN32
+	play_sound(buf,count);
+#else
+      write(1,buf,count);
+#endif
     }
 }
