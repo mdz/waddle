@@ -127,29 +127,27 @@ int sound_setup(int dev,int sampling_rate,int sample_size,int channels)
   PCMWAVEFORMAT pcmwf;
   DSBUFFERDESC dsbdesc;
   HRESULT hr;
-  char tmp[128];
   HWND hwnd;
 
-  if(hr = DirectSoundCreate(NULL, &lpDirectSound,NULL) != DS_OK)
+  if(DirectSoundCreate(NULL, &lpDirectSound,NULL) != DS_OK)
   {
     fprintf(stderr,"Couldn\'t initialize DirectSound -- barf!\n");
 	exit(1);
   }
 
   /* Get a window handle for this console */
-  GetConsoleTitle(tmp,128);
   SetConsoleTitle("WADDLE");
   Sleep(40);
   hwnd = FindWindow(NULL,"WADDLE");
-  /*SetConsoleTitle(tmp);*/
-
+  
+  
   if ( lpDirectSound->lpVtbl->SetCooperativeLevel(lpDirectSound, hwnd, DSSCL_NORMAL) != DS_OK)
   {
     fprintf(stderr,"Couldn\'t set cooperative level -- barf!\n");
 	exit(1);
   }
-  
-  if ( (hr = lpDirectSound->lpVtbl->GetCaps(lpDirectSound,&dscaps)) != DS_OK)
+  /* We can't query capabilities for some reason...testing */
+  /*if ( (hr = lpDirectSound->lpVtbl->GetCaps(lpDirectSound,&dscaps)) != DS_OK)
   {
     fprintf(stderr,"Couldn\'t get DirectSound capabilities: code %d\n",hr);
 	fprintf(stderr,"Possible: %d %d %d %d\n",DSERR_ALLOCATED,
@@ -169,66 +167,71 @@ DSERR_UNSUPPORTED );
   {
     fprintf(stderr,"16-bit samples not available -- waah\n");
 	exit(1);
-  }
+  }*/
 
-  /* XXX - Add sample rate checking here */
+  /* XXX - Add sample rate range checking here */
   
-  memset(&pcmwf, 0, sizeof(PCMWAVEFORMAT));
-  if (sampling_rate == 11025)
+  memset(&pcmwf, 0, sizeof(pcmwf));
+  /*if (sampling_rate == 11025)
 	if (sample_size == 1)
 	  if (channels == 1)
 		pcmwf.wf.wFormatTag = WAVE_FORMAT_1M08;
 	  else /* channels == 1 */
-	    pcmwf.wf.wFormatTag = WAVE_FORMAT_1S08;
+	    /*pcmwf.wf.wFormatTag = WAVE_FORMAT_1S08;
     else /* sample_size == 1 */
-	  if (channels == 1)
+	  /*if (channels == 1)
 		pcmwf.wf.wFormatTag = WAVE_FORMAT_1M16;
 	  else /* channels == 1 */
-	    pcmwf.wf.wFormatTag = WAVE_FORMAT_1S16;
+	    /*pcmwf.wf.wFormatTag = WAVE_FORMAT_1S16;
   else if (sampling_rate == 22050)
 	if (sample_size == 1)
 	  if (channels == 1)
 		pcmwf.wf.wFormatTag = WAVE_FORMAT_2M08;
 	  else /* channels == 1 */
-	    pcmwf.wf.wFormatTag = WAVE_FORMAT_2S08;
+	    /*pcmwf.wf.wFormatTag = WAVE_FORMAT_2S08;
     else /* sample_size == 1 */
-	  if (channels == 1)
+	  /*if (channels == 1)
 		pcmwf.wf.wFormatTag = WAVE_FORMAT_2M16;
 	  else /* channels == 1 */
-	    pcmwf.wf.wFormatTag = WAVE_FORMAT_2S16;
-  else /* sampling rate must be 44100 */
-	if (sample_size == 1)
+	    /*pcmwf.wf.wFormatTag = WAVE_FORMAT_2S16;
+  /*else /* sampling rate must be 44100 */
+	/*if (sample_size == 1)
 	  if (channels == 1)
 		pcmwf.wf.wFormatTag = WAVE_FORMAT_4M08;
 	  else /* channels == 1 */
-	    pcmwf.wf.wFormatTag = WAVE_FORMAT_4S08;
+	    /*pcmwf.wf.wFormatTag = WAVE_FORMAT_4S08;
     else /* sample_size == 1 */
-	  if (channels == 1)
+	  /*if (channels == 1)
 		pcmwf.wf.wFormatTag = WAVE_FORMAT_4M16;
 	  else /* channels == 1 */
-	    pcmwf.wf.wFormatTag = WAVE_FORMAT_4S16;
+	    /*pcmwf.wf.wFormatTag = WAVE_FORMAT_4S16;*/
   
+  pcmwf.wf.wFormatTag = WAVE_FORMAT_PCM;
   pcmwf.wf.nChannels = channels;
   pcmwf.wf.nSamplesPerSec = sampling_rate;
   pcmwf.wf.nBlockAlign = 1;
   pcmwf.wf.nAvgBytesPerSec = pcmwf.wf.nSamplesPerSec * sample_size;
   pcmwf.wBitsPerSample = sample_size * 8;
 
-  memset(&dsbdesc, 0, sizeof(DSBUFFERDESC)); // Zero it out.
+  memset(&dsbdesc, 0, sizeof(dsbdesc));
   dsbdesc.dwSize = sizeof(DSBUFFERDESC);
 
   dsbdesc.dwFlags = DSBCAPS_CTRLDEFAULT;
   dsbdesc.dwBufferBytes = 3 * pcmwf.wf.nAvgBytesPerSec; /* 3-second buffer */
   dsbdesc.lpwfxFormat = (LPWAVEFORMATEX)&pcmwf;
 
-  if (lpDirectSound->lpVtbl->CreateSoundBuffer(lpDirectSound,
-       &dsbdesc, &lpDsb, NULL) != DS_OK)
+  if ( (hr = lpDirectSound->lpVtbl->CreateSoundBuffer(lpDirectSound,
+       &dsbdesc, &lpDsb, NULL)) != DS_OK)
   {
-    fprintf(stderr,"Couldn't create sound buffer -- waah!\n");
+    fprintf(stderr,"Couldn't create sound buffer -- waah! (%d)\n",hr);
 	exit(1);
   }
 
-
+  /*if ( lpDsb->lpVtbl->SetVolume(lpDsb,0) != DS_OK)
+  {
+    fprintf(stderr,"Couldn\'t set volume\n");
+	exit(1);
+  }*/
   
   return(0);
 }
@@ -237,8 +240,8 @@ void play_sound(char *buf,int len)
 {
 	LPVOID lpvPtr1;
 	DWORD dwBytes1;
-	LPVOID lpvPtr2;
-	DWORD dwBytes2;
+	DWORD status = 0;
+	DWORD playcursor, writecursor;
 
 	if (lpDsb->lpVtbl->Lock(lpDsb, 0, len, &lpvPtr1, 
         &dwBytes1, NULL, NULL, 0) != DS_OK)
@@ -246,10 +249,12 @@ void play_sound(char *buf,int len)
 	  fprintf(stderr,"Couldn\'t lock sound buffer -- waah!\n");
 	  exit(1);
 	}
+	fprintf(stderr,"Locked %d of %d bytes of buffer\n",dwBytes1,len);
 
 	memcpy(lpvPtr1,buf,len);
+	/*write(1,buf,len);*/
 
-	if (lpDsb->lpVtbl->Unlock(lpDsb,lpvPtr1, dwBytes1, lpvPtr2, dwBytes2) != DS_OK)
+	if (lpDsb->lpVtbl->Unlock(lpDsb,lpvPtr1, dwBytes1, NULL, 0) != DS_OK)
 	{
 	  fprintf(stderr,"Couldn\'t UN-lock sound buffer -- waah!\n");
 	  exit(1);
@@ -260,6 +265,17 @@ void play_sound(char *buf,int len)
 	  fprintf(stderr,"Couldn\'t play sound buffer -- waah!\n");
 	  exit(1);
 	}
+
+	lpDsb->lpVtbl->GetStatus(lpDsb,&status);
+	fprintf(stderr,"Status: %d\n",status);
+	
+	if (lpDsb->lpVtbl->GetCurrentPosition(lpDsb,&playcursor,&writecursor) != DS_OK)
+	{
+	  fprintf(stderr,"GetCurrentPosition failed\n");
+	  exit(1);
+	}
+	Sleep(30);
+	fprintf(stderr,"Cursors: %d %d\n",playcursor,writecursor);
 }
 
 /* This is the old MCI driver that I gave up on...it's just too watered down */
