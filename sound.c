@@ -1,8 +1,11 @@
 /*
- * $Id: sound.c,v 1.10 1997/10/06 02:46:55 mdz Exp mdz $
+ * $Id: sound.c,v 1.11 1997/10/10 17:01:31 mdz Exp $
  * WADDLE - sound.c
  *
  * History: $Log: sound.c,v $
+ * History: Revision 1.11  1997/10/10 17:01:31  mdz
+ * History: Whipped things into shape
+ * History:
  * History: Revision 1.10  1997/10/06 02:46:55  mdz
  * History: Took out sequence numbers
  * History:
@@ -112,7 +115,7 @@ int sound_setup(int dev,int sampling_rate,int sample_size,int channels)
       exit(1);
     }
 
-  tmp = channels = 1;
+  tmp = channels - 1;
   arg = tmp;
   if (ioctl(dev,SNDCTL_DSP_STEREO,&arg) < 0)
     {
