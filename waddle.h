@@ -57,7 +57,7 @@ int sound_setup(int dev,int sampling_rate,int sample_size,int channels);
 void get_channel(const char *src,char *dst,int len,int which);
 
 #ifdef WIN32
-void play_sound(char *buf,int len);
+void play_sound(char *buf,unsigned int len);
 #endif
 
 #endif /* WADDLE_H */
