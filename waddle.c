@@ -32,7 +32,7 @@
 
 /****************************************
  *
- * $Id: waddle.c,v 1.4 1997/09/28 06:30:04 mdz Exp $
+ * $Id: waddle.c,v 1.1 1997/09/28 06:35:04 mdz Exp mdz $
  *
  * WADDLE - Wide Area Digital Distribution of Live Entertainment
  *
@@ -41,6 +41,9 @@
  * Author: Doctor Z <mdz@csh.rit.edu>
  *
  * History: $Log: waddle.c,v $
+ * History: Revision 1.1  1997/09/28 06:35:04  mdz
+ * History: Initial revision
+ * History:
  * History: Revision 1.4  1997/09/28 06:30:04  mdz
  * History: Wrote most of WIN32 MCI interface.  Abandoned.
  * History: Wrote most of WIN32 DirectSound interface.  Untested.
