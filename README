@@ -1,0 +1,52 @@
+WADDLE - Wide Area Digital Distribution of Live Entertainment
+Matt Zimmerman <mdz@csh.rit.edu>
+
+WADDLE takes as input a digital audio stream, and transmits it over an IP
+network to one (unicast) or many (multicast) receiver(s).  One instance of
+the application is run in a "server" mode (-b), while the others run in
+"client" (default) mode.  Currently, the "server" mode only works under
+Linux, but should be easily portable to other Unices.  The client code
+includes sound drivers for Linux (VOXware) and Win32 (DirectX/DirectSound).
+There is no Win32 server, and I hope there never is.
+
+The Linux client/server uses stdin/stdout for its audio source/sink.  If
+stdin is anything but a sound device, the server assumes that you're playing
+prerecorded input from a file, and will attempt microsecond-resolution
+sleeps to simulate a "live" broadcast (taking into account I/O delays).
+This may not be exactly precise, and with large files and small audio buffers
+(on the receiving end(s)), some problems may be experienced.
+
+The Win32 client uses whatever default sound device is provided by
+the DirectSound interface.  If you have more than one, figure it out.
+I didn't have a system suitable for testing with multiple devices.
+
+The following directories contain interesting things:
+
+bin/{linux,win32}	Precompiled binaries for Linux and Win32
+ms/			DirectX 5 and Winsock 2 (required for Win32 support)
+
+"Stereo multiplexing mode" splits the left and right channels of stereo
+input into two streams, sending them (presumably) to two different hosts
+or multicast groups.
+
+This was written in a mad rush before Illumination Madness in the fall of
+1997 during my tour of duty at Computer Science House at RIT in Rochester, NY.
+The source is not copywritten in any form, but proper credit (or blame)
+is appreciated if you use or modify it.
+
+Usage:
+waddle [options] <left ip address> [right ip address]
+Options:
+-s Enables stereo mode (default: mono)
+-r <arg> Sets sampling rate in Hz (default: 8000Hz)
+-q Enables high-quality mode with 16-bit samples (default: 8-bit)
+-b Enables broadcast (sender) mode
+
+Specify two IP addresses on sender for stereo multiplexing mode
+Use sound device as stdin/stdout as appropriate
+
+Future CSH members: I'll probably be reading my CSH mail for years to come, so
+if you come upon this program and desire insight into basic network
+programming, multicast, etc., feel free to send me mail.
+
+Documentation written 09/14/1998, many months after completion of development

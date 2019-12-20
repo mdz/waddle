@@ -1,6 +1,9 @@
-/* $Id: waddle.h,v 1.7 1997/10/11 17:20:25 mdz Exp mdz $
+/* $Id: waddle.h,v 1.8 1997/10/14 22:42:37 mdz Exp $
  *
  * $Log: waddle.h,v $
+ * Revision 1.8  1997/10/14 22:42:37  mdz
+ * Added interval timers for prerecorded sound
+ *
  * Revision 1.7  1997/10/11 17:20:25  mdz
  * Cleaned up
  *

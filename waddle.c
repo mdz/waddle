@@ -1,8 +1,11 @@
 /****************************************
  *
- * $Id: waddle.c,v 1.7 1997/10/14 22:41:34 mdz Exp $
+ * $Id: waddle.c,v 1.8 1998/09/15 05:22:42 mdz Exp $
  *
  * History: $Log: waddle.c,v $
+ * History: Revision 1.8  1998/09/15 05:22:42  mdz
+ * History: Cleaned up a bit
+ * History:
  * History: Revision 1.7  1997/10/14 22:41:34  mdz
  * History: Added interval timers for prerecorded sound
  * History:

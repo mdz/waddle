@@ -1,7 +1,10 @@
 /*
- * $Id: sound.c,v 1.12 1997/10/10 21:54:18 mdz Exp mdz $
+ * $Id: sound.c,v 1.13 1997/10/11 17:20:16 mdz Exp $
  *
  * History: $Log: sound.c,v $
+ * History: Revision 1.13  1997/10/11 17:20:16  mdz
+ * History: Cleaned up
+ * History:
  * History: Revision 1.12  1997/10/10 21:54:18  mdz
  * History: fixed stereo problem in linux driver
  * History:
